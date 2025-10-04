@@ -11,9 +11,9 @@ logging.basicConfig(
 )
 
 # Получаем токен из переменных окружения Railway
-BOT_TOKEN = os.environ.get('BOT_TOKEN', 'YOUR_BOT_TOKEN_HERE')
+BOT_TOKEN = os.environ.get('BOT_TOKEN', '7608150428:AAHS-RBJXGaB6VZPo1WSHbR3RyibUhthUbE')
 
-if BOT_TOKEN == 'YOUR_BOT_TOKEN_HERE':
+if BOT_TOKEN == '7608150428:AAHS-RBJXGaB6VZPo1WSHbR3RyibUhthUbE':
     logging.error("❌ BOT_TOKEN не установлен!")
     exit(1)
 
@@ -147,7 +147,7 @@ async def auto_translate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     # Проверяем токен
-    if not BOT_TOKEN or BOT_TOKEN == 'YOUR_BOT_TOKEN_HERE':
+    if not BOT_TOKEN or BOT_TOKEN == '7608150428:AAHS-RBJXGaB6VZPo1WSHbR3RyibUhthUbE':
         logging.error("❌ BOT_TOKEN не установлен!")
         return
     

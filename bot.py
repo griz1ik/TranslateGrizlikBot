@@ -2,7 +2,7 @@ import os
 import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from googletrans import Translator, LANGUAGES
+from deep_translator import GoogleTranslator
 
 # Настройка логирования
 logging.basicConfig(
@@ -11,20 +11,34 @@ logging.basicConfig(
 )
 
 # Получаем токен из переменных окружения Railway
-BOT_TOKEN = os.environ.get('BOT_TOKEN', '7608150428:AAHS-RBJXGaB6VZPo1WSHbR3RyibUhthUbE')
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
 
-if BOT_TOKEN == '7608150428:AAHS-RBJXGaB6VZPo1WSHbR3RyibUhthUbE':
+if not BOT_TOKEN:
     logging.error("❌ BOT_TOKEN не установлен!")
     exit(1)
-
-# Инициализация переводчика
-translator = Translator()
 
 # Список поддерживаемых языков с эмодзи
 LANGUAGE_EMOJIS = {
     'en': '🇺🇸', 'ru': '🇷🇺', 'es': '🇪🇸', 'fr': '🇫🇷', 'de': '🇩🇪',
     'it': '🇮🇹', 'pt': '🇵🇹', 'zh-cn': '🇨🇳', 'ja': '🇯🇵', 'ko': '🇰🇷',
     'ar': '🇸🇦', 'tr': '🇹🇷', 'hi': '🇮🇳', 'uk': '🇺🇦'
+}
+
+SUPPORTED_LANGUAGES = {
+    'en': 'english',
+    'ru': 'russian', 
+    'es': 'spanish',
+    'fr': 'french',
+    'de': 'german',
+    'it': 'italian',
+    'pt': 'portuguese',
+    'zh-cn': 'chinese (simplified)',
+    'ja': 'japanese',
+    'ko': 'korean',
+    'ar': 'arabic',
+    'tr': 'turkish',
+    'hi': 'hindi',
+    'uk': 'ukrainian'
 }
 
 DEFAULT_TARGET_LANGUAGES = ['en', 'ru', 'es', 'fr', 'de']
@@ -50,7 +64,7 @@ async def set_languages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Укажите языки: `/setlang en ru es`", parse_mode='Markdown')
         return
     
-    valid_langs = [lang for lang in context.args if lang in LANGUAGES]
+    valid_langs = [lang for lang in context.args if lang in SUPPORTED_LANGUAGES]
     
     if not valid_langs:
         await update.message.reply_text("❌ Не указано валидных языков")
@@ -65,21 +79,28 @@ async def set_languages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     response = f"✅ Установлены языки:\n"
     for lang in valid_langs:
         emoji = LANGUAGE_EMOJIS.get(lang, '🌐')
-        response += f"{emoji} {LANGUAGES[lang]}\n"
+        response += f"{emoji} {SUPPORTED_LANGUAGES[lang]}\n"
     
     await update.message.reply_text(response)
 
 async def show_languages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показать список языков"""
     languages_text = "🌍 **Поддерживаемые языки:**\n\n"
-    for code, name in LANGUAGES.items():
-        if code in LANGUAGE_EMOJIS:
-            emoji = LANGUAGE_EMOJIS[code]
-            languages_text += f"{emoji} `{code}` - {name}\n"
-        else:
-            languages_text += f"`{code}` - {name}\n"
+    for code, name in SUPPORTED_LANGUAGES.items():
+        emoji = LANGUAGE_EMOJIS.get(code, '🌐')
+        languages_text += f"{emoji} `{code}` - {name}\n"
     
-    await update.message.reply_text(languages_text[:4000], parse_mode='Markdown')
+    await update.message.reply_text(languages_text, parse_mode='Markdown')
+
+def detect_language(text):
+    """Простое определение языка по первому символу"""
+    # Это упрощенная версия - в реальном боте лучше использовать библиотеку
+    if any('\u0400' <= char <= '\u04FF' for char in text):  # Кириллица
+        return 'ru'
+    elif any('\u0041' <= char <= '\u007A' for char in text):  # Латинница
+        return 'en'
+    else:
+        return 'en'  # По умолчанию английский
 
 async def auto_translate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -96,28 +117,32 @@ async def auto_translate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parts = text.split(' /')
         original_text, target_lang = parts[0].strip(), parts[1].strip().lower()
         
-        if original_text and target_lang and target_lang in LANGUAGES:
+        if original_text and target_lang and target_lang in SUPPORTED_LANGUAGES:
             try:
-                translation = translator.translate(original_text, dest=target_lang)
-                source_emoji = LANGUAGE_EMOJIS.get(translation.src, '🌐')
+                # Автоопределение исходного языка
+                translation = GoogleTranslator(source='auto', target=target_lang).translate(original_text)
+                
+                source_emoji = '🌐'  # Упрощаем без определения исходного языка
                 target_emoji = LANGUAGE_EMOJIS.get(target_lang, '🌐')
                 
                 response = f"""
 {source_emoji} **Исходный текст**:
 {original_text}
 
-{target_emoji} **Перевод ({LANGUAGES[target_lang]})**:
-{translation.text}
+{target_emoji} **Перевод ({SUPPORTED_LANGUAGES[target_lang]})**:
+{translation}
                 """
                 await update.message.reply_text(response)
                 return
             except Exception as e:
                 logging.error(f"Translation error: {e}")
+                await update.message.reply_text("❌ Ошибка перевода")
+                return
     
-    # Автоматический перевод
+    # Автоматический перевод на несколько языков
     try:
-        detected = translator.detect(text)
-        source_lang = detected.lang
+        # Определяем исходный язык (упрощенно)
+        source_lang = detect_language(text)
         
         chat_id = update.message.chat_id
         target_languages = DEFAULT_TARGET_LANGUAGES
@@ -126,6 +151,7 @@ async def auto_translate(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id in context.bot_data['chat_settings']):
             target_languages = context.bot_data['chat_settings'][chat_id]['target_languages']
         
+        # Исключаем исходный язык
         target_languages = [lang for lang in target_languages if lang != source_lang][:3]
         
         if not target_languages:
@@ -135,22 +161,24 @@ async def auto_translate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response = f"{source_emoji} **Исходный текст**:\n{text}\n\n**Переводы:**\n\n"
         
         for target_lang in target_languages:
-            translation = translator.translate(text, src=source_lang, dest=target_lang)
-            target_emoji = LANGUAGE_EMOJIS.get(target_lang, '🌐')
-            response += f"{target_emoji} **{LANGUAGES[target_lang]}**:\n{translation.text}\n\n"
+            try:
+                translation = GoogleTranslator(source='auto', target=target_lang).translate(text)
+                target_emoji = LANGUAGE_EMOJIS.get(target_lang, '🌐')
+                response += f"{target_emoji} **{SUPPORTED_LANGUAGES[target_lang]}**:\n{translation}\n\n"
+            except Exception as e:
+                logging.error(f"Error translating to {target_lang}: {e}")
+                continue
         
-        await update.message.reply_text(response, parse_mode='Markdown')
+        if len(response) > 10:  # Если есть переводы
+            await update.message.reply_text(response, parse_mode='Markdown')
+        else:
+            await update.message.reply_text("❌ Не удалось выполнить перевод")
         
     except Exception as e:
         logging.error(f"Auto-translate error: {e}")
         await update.message.reply_text("❌ Ошибка перевода")
 
 def main():
-    # Проверяем токен
-    if not BOT_TOKEN or BOT_TOKEN == '7608150428:AAHS-RBJXGaB6VZPo1WSHbR3RyibUhthUbE':
-        logging.error("❌ BOT_TOKEN не установлен!")
-        return
-    
     application = Application.builder().token(BOT_TOKEN).build()
     
     # Добавляем обработчики

@@ -93,14 +93,28 @@ async def show_languages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(languages_text, parse_mode='Markdown')
 
 def detect_language(text):
-    """Простое определение языка по первому символу"""
-    # Это упрощенная версия - в реальном боте лучше использовать библиотеку
-    if any('\u0400' <= char <= '\u04FF' for char in text):  # Кириллица
-        return 'ru'
-    elif any('\u0041' <= char <= '\u007A' for char in text):  # Латинница
+     """Улучшенное определение языка"""
+    try:
+        # Простая эвристика для основных языков
+        text_lower = text.lower()
+        
+        # Русский - кириллица
+        if any('\u0400' <= char <= '\u04FF' for char in text):
+            return 'ru'
+        # Английский - латиница
+        elif any('\u0041' <= char <= '\u007A' for char in text):
+            return 'en'
+        # Испанский, французский и т.д. - тоже латиница, но можно добавить специфичные символы
+        elif 'ñ' in text_lower or '¡' in text or '¿' in text:
+            return 'es'
+        elif 'é' in text or 'è' in text or 'ê' in text:
+            return 'fr'
+        elif 'ä' in text or 'ö' in text or 'ü' in text or 'ß' in text:
+            return 'de'
+        else:
+            return 'en'  # По умолчанию
+    except:
         return 'en'
-    else:
-        return 'en'  # По умолчанию английский
 
 async def auto_translate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:

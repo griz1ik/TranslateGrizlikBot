@@ -1,0 +1,12 @@
+services:
+  - type: worker                 # Фоновый процесс (не веб‑приложение)
+    name: telegram-bot
+    env: python
+    plan: free                    # Бесплатный план
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false               # значение задаём в UI Render
+      - key: WEBHOOK_URL
+        sync: false               # тоже задаём в UI (можно оставить пустым)
